@@ -1,0 +1,65 @@
+Enum operation_types {
+  api_earning
+  withdrawal
+}
+
+// Creating references
+// You can also define relaionship separately
+// > many-to-one; < one-to-many; - one-to-one
+
+Table users {
+  id int [primary key, increment]
+  name varchar [not null]
+  email varchar [unique, not null]
+  password varchar [not null]
+  // Add 2fa ?
+}
+
+Table subdomains {
+  id int [primary key, increment]
+  user_id int [ref: > users.id, not null]
+  prefix varchar [not null, unique]
+  indexes {
+    prefix [name: 'prefix_ix', unique]
+  }
+}
+
+Table endpoints {
+  id int [primary key, increment]
+  subdomain_id int [ref: > subdomains.id, not null]
+  path varchar [not null]
+  success_code int [not null]
+  refund_no_success boolean [not null]
+  method varchar [not null]
+  cost int [note: 'Cost is in msat', not null]
+  timeout int [note: 'in ms', not null]
+}
+
+Table external_calls {
+  operation_id int [ref: - operations.id, not null]
+  endpoint_id int [ref: > endpoints.id, not null]
+  r_hash varchar [not null]
+  node_pubkey varchar [not null]
+  call_time timestamp  [default: `now()`, not null]
+  payment_time timestamp
+  latency int [note: 'in ms']
+  payed boolean [default: false, note: 'Set to true when the client calls the endpoint', not null]
+  used boolean [default: false, note: 'Set to true when the client calls the endpoint', not null]
+  // Todo might need to add the node that generated the payment.
+}
+
+Table operations {
+  id int [pk, increment]
+}
+
+Table balance_entries {
+  id int [pk, increment] // primary key
+  user_id int [ref: > users.id]
+  last_id int [ref: - balance_entries.id, not null, unique] // how do we init the account ?
+  operation_type operation_types // CHECK (operation_type IN ('D', 'T'))
+  operation_id int [ref: - operations.id]
+  // let's store the balance in msat
+  // 4 digits allows us to have as low 0.01% of fees
+  // 19 chars allows us to have up to 21M btc
+  balance decimal(23,4) [not null]
+}
