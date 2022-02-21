@@ -14,7 +14,6 @@ type Store interface {
 	Querier
 
 	ExecTx(context.Context, func(Querier) error) error
-	SetCallUsedChangeBalance(context.Context, SetCallUsedChangeBalanceParams) func(Querier) error
 }
 
 type SQLStore struct {
@@ -67,49 +66,4 @@ func (s *SQLStore) ExecTx(ctx context.Context, f func(Querier) error) error {
 	}
 
 	return nil
-}
-
-type SetCallUsedChangeBalanceParams struct {
-	SetCallAsUsedParams
-	ApplyOperationToBalanceParams
-
-	InsertProxyCallResultParams
-}
-
-// SetCallUsedChangeBalance Will use a transaction to set change the status
-// Of the call as used and to update the balance table.
-// If it fails, all the changes are dropped
-func (s *SQLStore) SetCallUsedChangeBalance(ctx context.Context, arg SetCallUsedChangeBalanceParams) func(Querier) error {
-
-	return func(q Querier) error {
-		var err error
-
-		err = q.SetCallAsUsed(ctx, SetCallAsUsedParams{
-			RHash:     arg.RHash,
-			UsageTime: arg.UsageTime,
-		})
-		if err != nil {
-			return err
-		}
-		_, err = q.ApplyOperationToBalance(ctx, ApplyOperationToBalanceParams{
-			UserID:        arg.UserID,
-			OperationType: arg.OperationType,
-			OperationID:   arg.OperationID,
-			Balance:       arg.Balance,
-		})
-		if err != nil {
-			return err
-		}
-
-		err = q.InsertProxyCallResult(ctx, InsertProxyCallResultParams{
-			ExternalCallID: arg.ExternalCallID,
-			StatusCode:     arg.StatusCode,
-			Latency:        arg.Latency,
-		})
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
 }
